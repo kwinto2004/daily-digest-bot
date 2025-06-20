@@ -1,14 +1,17 @@
+import logging
 import requests
 import schedule
 import time
-from telegram import Bot
+import asyncio
 from datetime import datetime
+from telegram import Bot
+from telegram.constants import ParseMode
 import random
 
 # === Налаштування ===
-TELEGRAM_TOKEN = '7913456658:AAHS0nOMwlW89gMMGyvNEvHWZm7m9HQS2hs'
+TELEGRAM_TOKEN = 'ВСТАВ_СВІЙ_ТЕЛЕГРАМ_ТОКЕН'
 CHAT_ID = -4830493043
-WEATHER_API_KEY = '28239cd5e279eb988fc138c29ade9c93'
+WEATHER_API_KEY = 'ВСТАВ_СВІЙ_КЛЮЧ_ПОГОДИ'
 
 CITIES = ['Kyiv', 'Warsaw', 'Alanya']
 ZODIACS = {
@@ -19,14 +22,14 @@ ZODIACS = {
 bot = Bot(token=TELEGRAM_TOKEN)
 
 def get_weather(city):
-    url = f'https://api.openweathermap.org/data/2.5/weather?q={city}&appid={WEATHER_API_KEY}&units=metric&lang=ua'
-    res = requests.get(url).json()
     try:
+        url = f'https://api.openweathermap.org/data/2.5/weather?q={city}&appid={WEATHER_API_KEY}&units=metric&lang=ua'
+        res = requests.get(url).json()
         temp = round(res['main']['temp'])
         desc = res['weather'][0]['description']
         return f"- {city}: {temp}°C, {desc.capitalize()}"
-    except:
-        return f"- {city}: [помилка отримання погоди]"
+    except Exception as e:
+        return f"- {city}: [помилка: {e}]"
 
 def get_all_weather():
     return "\n".join([get_weather(city) for city in CITIES])
@@ -47,9 +50,9 @@ def get_ba_tip():
     except:
         return "Сьогодні важливо залишатися сфокусованим 😉"
 
-def send_digest():
+async def send_digest():
     if datetime.now().weekday() > 4:
-        return  # лише пн–пт
+        return  # тільки пн-пт
 
     message = f"""📅 *Доброго ранку, команда!*
 Ось ваш ранковий дайджест на сьогодні:
@@ -64,12 +67,17 @@ def send_digest():
 📊 *Порада для бізнес-аналітика:*
 {get_ba_tip()}"""
 
-    bot.send_message(chat_id=CHAT_ID, text=message, parse_mode='Markdown')
+    await bot.send_message(chat_id=CHAT_ID, text=message, parse_mode=ParseMode.MARKDOWN)
 
-schedule.every().day.at("09:00").do(send_digest)
+# Обгортка для запуску async функції у schedule
+def scheduled_task():
+    asyncio.run(send_digest())
+
+# Запланувати о 09:00
+schedule.every().day.at("09:00").do(scheduled_task)
 
 print("✅ Бот працює. Очікує на 09:00 з понеділка по пʼятницю...")
-send_digest()
+
 while True:
     schedule.run_pending()
     time.sleep(60)
