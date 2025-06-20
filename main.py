@@ -9,9 +9,9 @@ from telegram.constants import ParseMode
 import random
 
 # === Налаштування ===
-TELEGRAM_TOKEN = 'ВСТАВ_СВІЙ_ТЕЛЕГРАМ_ТОКЕН'
+TELEGRAM_TOKEN = '7913456658:AAHS0nOMwlW89gMMGyvNEvHWZm7m9HQS2hs'
 CHAT_ID = -4830493043
-WEATHER_API_KEY = 'ВСТАВ_СВІЙ_КЛЮЧ_ПОГОДИ'
+WEATHER_API_KEY = '28239cd5e279eb988fc138c29ade9c93'
 
 CITIES = ['Kyiv', 'Warsaw', 'Alanya']
 ZODIACS = {
