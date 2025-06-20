@@ -73,6 +73,7 @@ def send_digest():
 schedule.every().day.at("09:00").do(send_digest)
 
 print("✅ Бот працює. Очікує на 09:00 з понеділка по пʼятницю...")
+send_digest()
 while True:
     schedule.run_pending()
     time.sleep(60)
