@@ -61,6 +61,9 @@ async def send_digest():
     )
     await bot.send_message(chat_id=CHAT_ID, text=message, parse_mode=ParseMode.MARKDOWN)
 
-# 🔧 Тимчасовий запуск для перевірки
-if __name__ == "__main__":
-    asyncio.run(send_digest())
+schedule.every().day.at("09:00").do(lambda: asyncio.run(send_digest()))
+
+while True:
+    schedule.run_pending()
+    time.sleep(60)
+
