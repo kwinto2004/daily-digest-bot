@@ -67,3 +67,5 @@ while True:
     schedule.run_pending()
     time.sleep(60)
 
+# Тимчасовий ручний запуск:
+# asyncio.run(send_digest())
