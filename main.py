@@ -78,6 +78,4 @@ schedule.every().day.at("09:00").do(scheduled_task)
 
 print("✅ Бот працює. Очікує на 09:00 з понеділка по пʼятницю...")
 
-while True:
-    schedule.run_pending()
-    time.sleep(60)
+asyncio.run(send_digest())
