@@ -126,4 +126,4 @@ print("✅ Бот працює. Очікує на 09:00 з понеділка п
 
 
 # Тимчасовий ручний запуск:
- asyncio.run(send_digest())
+asyncio.run(send_digest())
