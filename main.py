@@ -111,17 +111,19 @@ async def send_digest():
 📊 *Порада для бізнес-аналітика:*
 {get_ba_tip()}"""
 
-    await bot.send_message(chat_id=CHAT_ID, text=message, parse_mode=ParseMode.MARKDOWN)
+#    await bot.send_message(chat_id=CHAT_ID, text=message, parse_mode=ParseMode.MARKDOWN)
+print("=== Готовий дайджест ===")
+print(message)
 
 # === Планувальник ===
 schedule.every().day.at("09:00").do(lambda: asyncio.run(send_digest()))
 
 print("✅ Бот працює. Очікує на 09:00 з понеділка по пʼятницю...")
 
-while True:
-    schedule.run_pending()
-    time.sleep(60)
+#while True:
+#    schedule.run_pending()
+#    time.sleep(60)
 
 
 # Тимчасовий ручний запуск:
-# asyncio.run(send_digest())
+ asyncio.run(send_digest())
