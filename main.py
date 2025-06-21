@@ -4,7 +4,6 @@ import schedule
 import time
 import asyncio
 from datetime import datetime
-from telegram import Bot
 from telegram.constants import ParseMode
 import random
 import pytz
@@ -27,8 +26,6 @@ CITY_TZ = {
     'Варшава': 'Europe/Warsaw',
     'Аланія': 'Europe/Istanbul'
 }
-
-bot = Bot(token=TELEGRAM_TOKEN)
 
 # === Прогноз погоди по періодах ===
 def get_forecast_for_period(forecast_list, tz_str, period_start_hour, period_end_hour):
@@ -94,11 +91,8 @@ def get_ba_tip():
     except:
         return "Сьогодні важливо залишатися сфокусованим 😉"
 
-# === Основна функція надсилання ===
+# === Тестовий запуск — виводимо дайджест у консоль ===
 async def send_digest():
-    if datetime.now().weekday() > 4:
-        return  # тільки пн–пт
-
     message = f"""📅 *Доброго ранку, команда!*
 Ось ваш ранковий дайджест на сьогодні:
 
@@ -111,19 +105,8 @@ async def send_digest():
 📊 *Порада для бізнес-аналітика:*
 {get_ba_tip()}"""
 
-#    await bot.send_message(chat_id=CHAT_ID, text=message, parse_mode=ParseMode.MARKDOWN)
-print("=== Готовий дайджест ===")
-print(message)
+    print("=== Готовий дайджест ===")
+    print(message)
 
-# === Планувальник ===
-schedule.every().day.at("09:00").do(lambda: asyncio.run(send_digest()))
-
-print("✅ Бот працює. Очікує на 09:00 з понеділка по пʼятницю...")
-
-#while True:
-#    schedule.run_pending()
-#    time.sleep(60)
-
-
-# Тимчасовий ручний запуск:
-asyncio.run(send_digest())
+if __name__ == "__main__":
+    asyncio.run(send_digest())
