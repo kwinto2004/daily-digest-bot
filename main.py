@@ -26,23 +26,6 @@ CITY_TZ = {
 }
 
 # === Прогноз погоди ===
-def get_forecast_for_period(forecast_list, tz_str, period_start_hour, period_end_hour):
-    now = datetime.now(pytz.timezone(tz_str))
-    today = now.date()
-    period_entries = []
-
-    for entry in forecast_list:
-        dt = datetime.utcfromtimestamp(entry['dt']).replace(tzinfo=pytz.utc).astimezone(pytz.timezone(tz_str))
-        if dt.date() == today and period_start_hour <= dt.hour <= period_end_hour:
-            period_entries.append(entry)
-
-    if not period_entries:
-        return "немає даних"
-
-    avg_temp = round(sum(e['main']['temp'] for e in period_entries) / len(period_entries))
-    main_desc = period_entries[0]['weather'][0]['description'].capitalize()
-    return f"{avg_temp}°C, {main_desc}"
-
 def get_forecast_text(city_name):
     lat, lon = CITY_COORDS[city_name]
     tz = CITY_TZ[city_name]
@@ -50,6 +33,13 @@ def get_forecast_text(city_name):
 
     try:
         res = requests.get(url).json()
+
+        # 🐞 DEBUG — друкуємо відповідь від API
+        print(f"[DEBUG] {city_name} raw forecast: {res}")
+
+        if "list" not in res or not res["list"]:
+            return f"{city_name.ljust(9)} 🔴 немає даних від API"
+
         forecast_list = res['list']
 
         morning = get_forecast_for_period(forecast_list, tz, 6, 11)
@@ -82,12 +72,10 @@ def get_forecast_text(city_name):
 
         return f"{city_name.ljust(9)} {format_period(morning)}   {format_period(afternoon)}   {format_period(evening)}"
 
-    except:
-        return f"{city_name.ljust(9)} —   —   —"
+    except Exception as e:
+        print(f"[ERROR] {city_name}: {e}")
+        return f"{city_name.ljust(9)} ⚠️ помилка API"
 
-def get_weather_summary():
-    lines = [get_forecast_text(city) for city in CITY_COORDS]
-    return "📅 *Прогноз погоди на сьогодні:*\n\n" + "\n".join(lines)
 
 # === Інші блоки ===
 ZODIACS = {
