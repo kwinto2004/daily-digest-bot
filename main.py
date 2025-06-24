@@ -6,6 +6,9 @@ import random
 import pytz
 
 # === Налаштування ===
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 TELEGRAM_TOKEN = '7913456658:AAHS0nOMwlW89gMMGyvNEvHWZm7m9HQS2hs'
 WEATHER_API_KEY = '28239cd5e279eb988fc138c29ade9c93'
 CHAT_ID = -4830493043
@@ -46,14 +49,14 @@ def get_forecast_text(city_name):
     url = f'https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={WEATHER_API_KEY}&units=metric&lang=ua'
 
     try:
-        res = requests.get(url).json()
+        res = requests.get(url)
+        logger.info(f"[{city_name}] Raw API response: {res.status_code} {res.text}")
+        data = res.json()
 
-        print(f"[DEBUG] {city_name} raw forecast: {res}")  # логування
-
-        if "list" not in res or not res["list"]:
+        if "list" not in data or not data["list"]:
             return f"{city_name.ljust(9)} 🔴 немає даних від API"
 
-        forecast_list = res['list']
+        forecast_list = data['list']
 
         morning = get_forecast_for_period(forecast_list, tz, 6, 11)
         afternoon = get_forecast_for_period(forecast_list, tz, 12, 16)
@@ -86,7 +89,7 @@ def get_forecast_text(city_name):
         return f"{city_name.ljust(9)} {format_period(morning)}   {format_period(afternoon)}   {format_period(evening)}"
 
     except Exception as e:
-        print(f"[ERROR] {city_name}: {e}")
+        logger.exception(f"[{city_name}] Exception during weather fetch")
         return f"{city_name.ljust(9)} ⚠️ помилка API"
 
 def get_weather_summary():
