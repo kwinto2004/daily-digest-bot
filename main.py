@@ -9,8 +9,8 @@ import random
 import pytz
 
 # === Налаштування ===
-TELEGRAM_TOKEN = 'тут_токен'
-WEATHER_API_KEY = 'тут_ключ'
+TELEGRAM_TOKEN = '7913456658:AAHS0nOMwlW89gMMGyvNEvHWZm7m9HQS2hs'
+WEATHER_API_KEY = '28239cd5e279eb988fc138c29ade9c93'
 CHAT_ID = -4830493043
 
 CITY_COORDS = {
