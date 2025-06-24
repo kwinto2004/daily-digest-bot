@@ -10,8 +10,8 @@ from bs4 import BeautifulSoup
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-TELEGRAM_TOKEN = 'your_token_here'
-WEATHER_API_KEY = 'your_openweathermap_api_key_here'
+TELEGRAM_TOKEN = '7913456658:AAHS0nOMwlW89gMMGyvNEvHWZm7m9HQS2hs'
+WEATHER_API_KEY = '28239cd5e279eb988fc138c29ade9c93'
 CHAT_ID = -4830493043
 
 CITY_COORDS = {
@@ -104,7 +104,12 @@ def parse_minfin_currency_history(url: str, days: int = 3):
     soup = BeautifulSoup(response.text, 'html.parser')
 
     table = soup.find('table')
-    rows = table.find_all('tr')[1:]  # без заголовку
+    if not table:
+        print(f"[ERROR] Не знайдено таблицю на сторінці: {url}")
+        return []
+
+    rows = table.find_all('tr')[1:]
+    print(f"[DEBUG] {url} - знайдено {len(rows)} рядків у таблиці")
 
     data = []
     for row in rows[:days]:
