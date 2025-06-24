@@ -26,24 +26,22 @@ CITY_TZ = {
 }
 
 # === Прогноз погоди ===
-def get_closest_forecast(forecast_list, tz_str, target_hour):
+def get_forecast_for_period(forecast_list, tz_str, period_start_hour, period_end_hour):
     now = datetime.now(pytz.timezone(tz_str))
-    closest_entry = None
-    min_diff = float('inf')
+    today = now.date()
+    period_entries = []
 
     for entry in forecast_list:
         dt = datetime.utcfromtimestamp(entry['dt']).replace(tzinfo=pytz.utc).astimezone(pytz.timezone(tz_str))
-        diff = abs((dt.hour - target_hour) + (dt.date() - now.date()).days * 24)
-        if diff < min_diff:
-            min_diff = diff
-            closest_entry = entry
+        if dt.date() == today and period_start_hour <= dt.hour <= period_end_hour:
+            period_entries.append(entry)
 
-    if closest_entry:
-        temp = round(closest_entry['main']['temp'])
-        desc = closest_entry['weather'][0]['description'].capitalize()
-        return f"{temp}°C, {desc}"
-    else:
+    if not period_entries:
         return "немає даних"
+
+    avg_temp = round(sum(e['main']['temp'] for e in period_entries) / len(period_entries))
+    main_desc = period_entries[0]['weather'][0]['description'].capitalize()
+    return f"{avg_temp}°C, {main_desc}"
 
 def get_forecast_text(city_name):
     lat, lon = CITY_COORDS[city_name]
@@ -59,9 +57,9 @@ def get_forecast_text(city_name):
 
         forecast_list = data['list']
 
-        morning = get_closest_forecast(forecast_list, tz, 9)
-        afternoon = get_closest_forecast(forecast_list, tz, 14)
-        evening = get_closest_forecast(forecast_list, tz, 19)
+        morning = get_forecast_for_period(forecast_list, tz, 6, 11)
+        afternoon = get_forecast_for_period(forecast_list, tz, 12, 16)
+        evening = get_forecast_for_period(forecast_list, tz, 17, 21)
 
         def emoji(desc):
             desc = desc.lower()
