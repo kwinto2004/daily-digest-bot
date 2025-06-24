@@ -9,25 +9,23 @@ import random
 import pytz
 
 # === Налаштування ===
-TELEGRAM_TOKEN = '7913456658:AAHS0nOMwlW89gMMGyvNEvHWZm7m9HQS2hs'
-WEATHER_API_KEY = '28239cd5e279eb988fc138c29ade9c93'
+TELEGRAM_TOKEN = 'тут_токен'
+WEATHER_API_KEY = 'тут_ключ'
 CHAT_ID = -4830493043
 
-# Міста та координати
 CITY_COORDS = {
     'Київ': (50.45, 30.52),
     'Варшава': (52.23, 21.01),
     'Аланія': (36.54, 32.00)
 }
 
-# Часові пояси міст
 CITY_TZ = {
     'Київ': 'Europe/Kyiv',
     'Варшава': 'Europe/Warsaw',
     'Аланія': 'Europe/Istanbul'
 }
 
-# === Прогноз погоди по періодах ===
+# === Прогноз погоди ===
 def get_forecast_for_period(forecast_list, tz_str, period_start_hour, period_end_hour):
     now = datetime.now(pytz.timezone(tz_str))
     today = now.date()
@@ -45,11 +43,11 @@ def get_forecast_for_period(forecast_list, tz_str, period_start_hour, period_end
     main_desc = period_entries[0]['weather'][0]['description'].capitalize()
     return f"{avg_temp}°C, {main_desc}"
 
-def get_weather_forecast(city_name):
+def get_forecast_text(city_name):
     lat, lon = CITY_COORDS[city_name]
     tz = CITY_TZ[city_name]
-
     url = f'https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={WEATHER_API_KEY}&units=metric&lang=ua'
+
     try:
         res = requests.get(url).json()
         forecast_list = res['list']
@@ -58,16 +56,38 @@ def get_weather_forecast(city_name):
         afternoon = get_forecast_for_period(forecast_list, tz, 12, 16)
         evening = get_forecast_for_period(forecast_list, tz, 17, 21)
 
-        return f"""🌤 *Погода в {city_name}:*
-🕘 Ранок: {morning}
-🕛 Обід: {afternoon}
-🌆 Вечір: {evening}"""
+        def emoji(desc):
+            desc = desc.lower()
+            if "дощ" in desc:
+                return "🌧️"
+            if "гроза" in desc:
+                return "⛈️"
+            if "сніг" in desc:
+                return "🌨️"
+            if "сонячно" in desc or "ясно" in desc:
+                return "☀️"
+            if "хмар" in desc:
+                return "⛅"
+            if "туман" in desc:
+                return "🌫️"
+            return "🌤️"
 
-    except Exception as e:
-        return f"Не вдалося отримати прогноз для {city_name}: {e}"
+        def format_period(period):
+            if period == "немає даних":
+                return "—"
+            parts = period.split(", ")
+            temp = parts[0]
+            desc = parts[1] if len(parts) > 1 else ""
+            return f"{emoji(desc)} {temp}"
 
-def get_all_forecasts():
-    return "\n\n".join([get_weather_forecast(city) for city in CITY_COORDS])
+        return f"{city_name.ljust(9)} {format_period(morning)}   {format_period(afternoon)}   {format_period(evening)}"
+
+    except:
+        return f"{city_name.ljust(9)} —   —   —"
+
+def get_weather_summary():
+    lines = [get_forecast_text(city) for city in CITY_COORDS]
+    return "📅 *Прогноз погоди на сьогодні:*\n\n" + "\n".join(lines)
 
 # === Інші блоки ===
 ZODIACS = {
@@ -91,12 +111,12 @@ def get_ba_tip():
     except:
         return "Сьогодні важливо залишатися сфокусованим 😉"
 
-# === Тестовий запуск — виводимо дайджест у консоль ===
+# === Тестовий запуск ===
 async def send_digest():
     message = f"""📅 *Доброго ранку, команда!*
 Ось ваш ранковий дайджест на сьогодні:
 
-{get_all_forecasts()}
+{get_weather_summary()}
 
 ♓ *Гороскоп для Риб:* {get_horoscope(ZODIACS['Риби'])}
 
