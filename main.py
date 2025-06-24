@@ -4,13 +4,14 @@ import asyncio
 from datetime import datetime
 import random
 import pytz
+from bs4 import BeautifulSoup
 
 # === Налаштування ===
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-TELEGRAM_TOKEN = '7913456658:AAHS0nOMwlW89gMMGyvNEvHWZm7m9HQS2hs'
-WEATHER_API_KEY = '28239cd5e279eb988fc138c29ade9c93'
+TELEGRAM_TOKEN = 'your_token_here'
+WEATHER_API_KEY = 'your_openweathermap_api_key_here'
 CHAT_ID = -4830493043
 
 CITY_COORDS = {
@@ -26,22 +27,24 @@ CITY_TZ = {
 }
 
 # === Прогноз погоди ===
-def get_forecast_for_period(forecast_list, tz_str, period_start_hour, period_end_hour):
+def get_closest_forecast(forecast_list, tz_str, target_hour):
     now = datetime.now(pytz.timezone(tz_str))
-    today = now.date()
-    period_entries = []
+    closest_entry = None
+    min_diff = float('inf')
 
     for entry in forecast_list:
         dt = datetime.utcfromtimestamp(entry['dt']).replace(tzinfo=pytz.utc).astimezone(pytz.timezone(tz_str))
-        if dt.date() == today and period_start_hour <= dt.hour <= period_end_hour:
-            period_entries.append(entry)
+        diff = abs((dt.hour - target_hour) + (dt.date() - now.date()).days * 24)
+        if diff < min_diff:
+            min_diff = diff
+            closest_entry = entry
 
-    if not period_entries:
+    if closest_entry:
+        temp = round(closest_entry['main']['temp'])
+        desc = closest_entry['weather'][0]['description'].capitalize()
+        return f"{temp}°C, {desc}"
+    else:
         return "немає даних"
-
-    avg_temp = round(sum(e['main']['temp'] for e in period_entries) / len(period_entries))
-    main_desc = period_entries[0]['weather'][0]['description'].capitalize()
-    return f"{avg_temp}°C, {main_desc}"
 
 def get_forecast_text(city_name):
     lat, lon = CITY_COORDS[city_name]
@@ -57,9 +60,9 @@ def get_forecast_text(city_name):
 
         forecast_list = data['list']
 
-        morning = get_forecast_for_period(forecast_list, tz, 6, 11)
-        afternoon = get_forecast_for_period(forecast_list, tz, 12, 16)
-        evening = get_forecast_for_period(forecast_list, tz, 17, 21)
+        morning = get_closest_forecast(forecast_list, tz, 9)
+        afternoon = get_closest_forecast(forecast_list, tz, 14)
+        evening = get_closest_forecast(forecast_list, tz, 19)
 
         def emoji(desc):
             desc = desc.lower()
@@ -95,6 +98,35 @@ def get_weather_summary():
     lines = [get_forecast_text(city) for city in CITY_COORDS]
     return "📅 *Прогноз погоди на сьогодні:*\n\n" + "\n".join(lines)
 
+# === Курси валют (Мінфін) ===
+def parse_minfin_currency_history(url: str, days: int = 3):
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, 'html.parser')
+
+    table = soup.find('table')
+    rows = table.find_all('tr')[1:]  # без заголовку
+
+    data = []
+    for row in rows[:days]:
+        cols = row.find_all('td')
+        if len(cols) >= 3:
+            date_str = cols[0].get_text(strip=True)
+            sale = cols[1].get_text(strip=True)
+            buy = cols[2].get_text(strip=True)
+            data.append((date_str, sale, buy))
+    return data
+
+def format_currency_block():
+    usd_data = parse_minfin_currency_history("https://minfin.com.ua/ua/currency/auction/archive/usd/all/")
+    eur_data = parse_minfin_currency_history("https://minfin.com.ua/ua/currency/auction/archive/eur/all/")
+    lines = ["💱 *Курс валют (гривня до USD та EUR):*", "Дата       | USD куп. / прод. | EUR куп. / прод.", "-----------|------------------|------------------"]
+    for i in range(min(len(usd_data), len(eur_data))):
+        date = usd_data[i][0]
+        usd = f"{usd_data[i][2]} / {usd_data[i][1]}"
+        eur = f"{eur_data[i][2]} / {eur_data[i][1]}"
+        lines.append(f"{date:<10} | {usd:<16} | {eur}")
+    return "\n".join(lines)
+
 # === Інші блоки ===
 ZODIACS = {
     'Риби': 'pisces',
@@ -123,6 +155,8 @@ async def send_digest():
 Ось ваш ранковий дайджест на сьогодні:
 
 {get_weather_summary()}
+
+{format_currency_block()}
 
 ♓ *Гороскоп для Риб:* {get_horoscope(ZODIACS['Риби'])}
 
