@@ -27,16 +27,13 @@ CITY_TZ = {
 
 # === Прогноз погоди ===
 def get_closest_forecast(forecast_list, tz_str, target_hour):
-    """Повертає прогноз із часу, найближчого до заданої години."""
     now = datetime.now(pytz.timezone(tz_str))
-
     closest_entry = None
     min_diff = float('inf')
 
     for entry in forecast_list:
         dt = datetime.utcfromtimestamp(entry['dt']).replace(tzinfo=pytz.utc).astimezone(pytz.timezone(tz_str))
         diff = abs((dt.hour - target_hour) + (dt.date() - now.date()).days * 24)
-
         if diff < min_diff:
             min_diff = diff
             closest_entry = entry
@@ -55,7 +52,6 @@ def get_forecast_text(city_name):
 
     try:
         res = requests.get(url)
-        logger.info(f"[{city_name}] Raw API response: {res.status_code}")
         data = res.json()
 
         if "list" not in data or not data["list"]:
