@@ -26,22 +26,27 @@ CITY_TZ = {
 }
 
 # === Прогноз погоди ===
-def get_forecast_for_period(forecast_list, tz_str, period_start_hour, period_end_hour):
+def get_closest_forecast(forecast_list, tz_str, target_hour):
+    """Повертає прогноз із часу, найближчого до заданої години."""
     now = datetime.now(pytz.timezone(tz_str))
-    today = now.date()
-    period_entries = []
+
+    closest_entry = None
+    min_diff = float('inf')
 
     for entry in forecast_list:
         dt = datetime.utcfromtimestamp(entry['dt']).replace(tzinfo=pytz.utc).astimezone(pytz.timezone(tz_str))
-        if dt.date() == today and period_start_hour <= dt.hour <= period_end_hour:
-            period_entries.append(entry)
+        diff = abs((dt.hour - target_hour) + (dt.date() - now.date()).days * 24)
 
-    if not period_entries:
+        if diff < min_diff:
+            min_diff = diff
+            closest_entry = entry
+
+    if closest_entry:
+        temp = round(closest_entry['main']['temp'])
+        desc = closest_entry['weather'][0]['description'].capitalize()
+        return f"{temp}°C, {desc}"
+    else:
         return "немає даних"
-
-    avg_temp = round(sum(e['main']['temp'] for e in period_entries) / len(period_entries))
-    main_desc = period_entries[0]['weather'][0]['description'].capitalize()
-    return f"{avg_temp}°C, {main_desc}"
 
 def get_forecast_text(city_name):
     lat, lon = CITY_COORDS[city_name]
@@ -50,7 +55,7 @@ def get_forecast_text(city_name):
 
     try:
         res = requests.get(url)
-        logger.info(f"[{city_name}] Raw API response: {res.status_code} {res.text}")
+        logger.info(f"[{city_name}] Raw API response: {res.status_code}")
         data = res.json()
 
         if "list" not in data or not data["list"]:
@@ -58,9 +63,9 @@ def get_forecast_text(city_name):
 
         forecast_list = data['list']
 
-        morning = get_forecast_for_period(forecast_list, tz, 6, 11)
-        afternoon = get_forecast_for_period(forecast_list, tz, 12, 16)
-        evening = get_forecast_for_period(forecast_list, tz, 17, 21)
+        morning = get_closest_forecast(forecast_list, tz, 9)
+        afternoon = get_closest_forecast(forecast_list, tz, 14)
+        evening = get_closest_forecast(forecast_list, tz, 19)
 
         def emoji(desc):
             desc = desc.lower()
