@@ -98,38 +98,39 @@ def get_weather_summary():
     lines = [get_forecast_text(city) for city in CITY_COORDS]
     return "📅 *Прогноз погоди на сьогодні:*\n\n" + "\n".join(lines)
 
-# === Курси валют (Мінфін) ===
-def parse_minfin_currency_history(url: str, days: int = 3):
-    response = requests.get(url)
-    soup = BeautifulSoup(response.text, 'html.parser')
+# === Валюта з Minfin ===
+def get_currency_table(url):
+    try:
+        r = requests.get(url)
+        soup = BeautifulSoup(r.text, 'html.parser')
+        rows = soup.select('table tbody tr')
+        logger.debug(f"[DEBUG] {url} - знайдено {len(rows)} рядків у таблиці")
 
-    table = soup.find('table')
-    if not table:
-        print(f"[ERROR] Не знайдено таблицю на сторінці: {url}")
+        data = []
+        for row in rows[:3]:
+            cols = row.find_all('td')
+            if len(cols) >= 3:
+                date = cols[0].text.strip()
+                sell = cols[1].text.strip()
+                buy = cols[2].text.strip()
+                data.append((date, buy, sell))
+        return data
+    except Exception as e:
+        logger.error(f"Помилка при парсингу {url}: {e}")
         return []
 
-    rows = table.find_all('tr')[1:]
-    print(f"[DEBUG] {url} - знайдено {len(rows)} рядків у таблиці")
+def get_currency_summary():
+    usd = get_currency_table("https://minfin.com.ua/ua/currency/auction/archive/usd/all/")
+    eur = get_currency_table("https://minfin.com.ua/ua/currency/auction/archive/eur/all/")
+    lines = ["💱 *Курс валют (гривня до USD та EUR):*",
+             "Дата       | USD куп. / прод. | EUR куп. / прод.",
+             "-----------|------------------|------------------"]
 
-    data = []
-    for row in rows[:days]:
-        cols = row.find_all('td')
-        if len(cols) >= 3:
-            date_str = cols[0].get_text(strip=True)
-            sale = cols[1].get_text(strip=True)
-            buy = cols[2].get_text(strip=True)
-            data.append((date_str, sale, buy))
-    return data
-
-def format_currency_block():
-    usd_data = parse_minfin_currency_history("https://minfin.com.ua/ua/currency/auction/archive/usd/all/")
-    eur_data = parse_minfin_currency_history("https://minfin.com.ua/ua/currency/auction/archive/eur/all/")
-    lines = ["💱 *Курс валют (гривня до USD та EUR):*", "Дата       | USD куп. / прод. | EUR куп. / прод.", "-----------|------------------|------------------"]
-    for i in range(min(len(usd_data), len(eur_data))):
-        date = usd_data[i][0]
-        usd = f"{usd_data[i][2]} / {usd_data[i][1]}"
-        eur = f"{eur_data[i][2]} / {eur_data[i][1]}"
-        lines.append(f"{date:<10} | {usd:<16} | {eur}")
+    for i in range(min(len(usd), len(eur))):
+        date = usd[i][0]
+        usd_line = f"{usd[i][1]} / {usd[i][2]}"
+        eur_line = f"{eur[i][1]} / {eur[i][2]}"
+        lines.append(f"{date:<10} | {usd_line:<16} | {eur_line:<16}")
     return "\n".join(lines)
 
 # === Інші блоки ===
@@ -161,7 +162,7 @@ async def send_digest():
 
 {get_weather_summary()}
 
-{format_currency_block()}
+{get_currency_summary()}
 
 ♓ *Гороскоп для Риб:* {get_horoscope(ZODIACS['Риби'])}
 
