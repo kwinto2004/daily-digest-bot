@@ -5,22 +5,7 @@ from datetime import datetime
 import random
 import pytz
 from telegram import Bot
-from telegram.constants import ParseMode
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-
-options = Options()
-options.add_argument('--headless')
-options.add_argument('--no-sandbox')
-options.add_argument('--disable-dev-shm-usage')
-options.add_argument('--disable-gpu')  # іноді допомагає
-options.add_argument('--disable-software-rasterizer')
-options.add_argument('--remote-debugging-port=9222')
-# НЕ додавати options.add_argument('--user-data-dir=...')
-
-driver = webdriver.Chrome(options=options)
-from selenium.webdriver.common.by import By
-import time
+from pyppeteer import launch
 
 # === Налаштування ===
 logging.basicConfig(level=logging.INFO)
@@ -42,7 +27,7 @@ CITY_TZ = {
     'Аланія': 'Europe/Istanbul'
 }
 
-# === Прогноз погоди ===
+# === Погода ===
 def get_closest_forecast(forecast_list, tz_str, target_hour):
     now = datetime.now(pytz.timezone(tz_str))
     closest_entry = None
@@ -81,18 +66,12 @@ def get_forecast_text(city_name):
 
         def emoji(desc):
             desc = desc.lower()
-            if "дощ" in desc:
-                return "🌧️"
-            if "гроза" in desc:
-                return "⛈️"
-            if "сніг" in desc:
-                return "🌨️"
-            if "сонячно" in desc or "ясно" in desc:
-                return "☀️"
-            if "хмар" in desc:
-                return "⛅"
-            if "туман" in desc:
-                return "🌫️"
+            if "дощ" in desc: return "🌧️"
+            if "гроза" in desc: return "⛈️"
+            if "сніг" in desc: return "🌨️"
+            if "сонячно" in desc or "ясно" in desc: return "☀️"
+            if "хмар" in desc: return "⛅"
+            if "туман" in desc: return "🌫️"
             return "🌤️"
 
         def format_period(period):
@@ -113,7 +92,7 @@ def get_weather_summary():
     lines = [get_forecast_text(city) for city in CITY_COORDS]
     return "📅 *Прогноз погоди на сьогодні:*\n\n" + "\n".join(lines)
 
-# === Гороскоп і поради ===
+# === Гороскопи та поради ===
 ZODIACS = {
     'Риби': 'pisces',
     'Стрілець': 'sagittarius'
@@ -135,43 +114,25 @@ def get_ba_tip():
     except:
         return "Сьогодні важливо залишатися сфокусованим 😉"
 
-# === Скріншот інформера ===
-def generate_currency_screenshot():
-    options = Options()
-    options.add_argument("--headless")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--window-size=1200x800")
-    driver = webdriver.Chrome(options=options)
-    try:
-        url = "https://minfin.com.ua/ua/currency/"
-        driver.get(url)
-        time.sleep(5)
-        widget = driver.find_element(By.CLASS_NAME, "sc-13dsdq3-2")
-        widget.screenshot("exchange_today.png")
-    finally:
-        driver.quit()
+# === Інформер курсу валют ===
+async def generate_currency_screenshot():
+    browser = await launch(headless=True, args=['--no-sandbox'])
+    page = await browser.newPage()
+    await page.setViewport({'width': 700, 'height': 300})
+    await page.goto("https://minfin.com.ua/ua/currency/")
+    await page.waitForSelector('.sc-1x32wa2-9')
+    informer = await page.querySelector('.sc-1x32wa2-9')
+    await informer.screenshot({'path': 'currency.png'})
+    await browser.close()
 
-# === Надсилання дайджесту з фото ===
-def send_digest_with_photo(message, image_path, chat_id, token):
-    try:
-        bot = Bot(token=token)
-        with open(image_path, 'rb') as photo:
-            bot.send_photo(chat_id=chat_id, photo=photo, caption=message, parse_mode=ParseMode.MARKDOWN)
-    except Exception as e:
-        logger.error(f"Помилка надсилання повідомлення: {e}")
-
-# === Запуск ===
+# === Основний дайджест ===
 async def send_digest():
-    generate_currency_screenshot()
+    bot = Bot(token=TELEGRAM_TOKEN)
 
-    today = datetime.now().strftime("%d.%m.%Y")
     message = f"""📅 *Доброго ранку, команда!*
-Ось ваш ранковий дайджест на *{today}*:
+Ось ваш ранковий дайджест на сьогодні:
 
 {get_weather_summary()}
-
-💱 *Курс валют (за інформером Мінфіну)* — дивіться нижче 👇
 
 ♓ *Гороскоп для Риб:* {get_horoscope(ZODIACS['Риби'])}
 
@@ -180,10 +141,14 @@ async def send_digest():
 📊 *Порада для бізнес-аналітика:*
 {get_ba_tip()}"""
 
-    send_digest_with_photo(message, "exchange_today.png", CHAT_ID, TELEGRAM_TOKEN)
-
     print("=== Готовий дайджест ===")
     print(message)
+
+    await bot.send_message(chat_id=CHAT_ID, text=message, parse_mode="Markdown")
+
+    await generate_currency_screenshot()
+    with open("currency.png", "rb") as photo:
+        await bot.send_photo(chat_id=CHAT_ID, photo=photo, caption="💱 Актуальний курс валют")
 
 if __name__ == "__main__":
     asyncio.run(send_digest())
