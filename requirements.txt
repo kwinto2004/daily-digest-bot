@@ -3,5 +3,4 @@ schedule
 requests
 pytz
 beautifulsoup4
-selenium
 pyppeteer
