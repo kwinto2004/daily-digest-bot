@@ -15,9 +15,9 @@ import time
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-TELEGRAM_TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'
+TELEGRAM_TOKEN = '7913456658:AAHS0nOMwlW89gMMGyvNEvHWZm7m9HQS2hs'
+WEATHER_API_KEY = '28239cd5e279eb988fc138c29ade9c93'
 CHAT_ID = -4830493043
-WEATHER_API_KEY = 'YOUR_OPENWEATHERMAP_API_KEY'
 
 CITY_COORDS = {
     'Київ': (50.45, 30.52),
