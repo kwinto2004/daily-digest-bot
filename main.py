@@ -1,16 +1,23 @@
-import asyncio
-import random
+import logging
 import requests
+import asyncio
 from datetime import datetime
-from bs4 import BeautifulSoup
-from telegram import Bot
-from pyppeteer import launch
+import random
 import pytz
+from telegram import Bot
+from telegram.constants import ParseMode
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+import time
 
 # === Налаштування ===
-TELEGRAM_TOKEN = '7913456658:AAHS0nOMwlW89gMMGyvNEvHWZm7m9HQS2hs'
-WEATHER_API_KEY = '28239cd5e279eb988fc138c29ade9c93'
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+TELEGRAM_TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'
 CHAT_ID = -4830493043
+WEATHER_API_KEY = 'YOUR_OPENWEATHERMAP_API_KEY'
 
 CITY_COORDS = {
     'Київ': (50.45, 30.52),
@@ -22,11 +29,6 @@ CITY_TZ = {
     'Київ': 'Europe/Kyiv',
     'Варшава': 'Europe/Warsaw',
     'Аланія': 'Europe/Istanbul'
-}
-
-ZODIACS = {
-    'Риби': 'pisces',
-    'Стрілець': 'sagittarius'
 }
 
 # === Прогноз погоди ===
@@ -62,7 +64,6 @@ def get_forecast_text(city_name):
             return f"{city_name.ljust(9)} 🔴 немає даних від API"
 
         forecast_list = data['list']
-
         morning = get_closest_forecast(forecast_list, tz, 9)
         afternoon = get_closest_forecast(forecast_list, tz, 14)
         evening = get_closest_forecast(forecast_list, tz, 19)
@@ -94,13 +95,19 @@ def get_forecast_text(city_name):
         return f"{city_name.ljust(9)} {format_period(morning)}   {format_period(afternoon)}   {format_period(evening)}"
 
     except Exception as e:
+        logger.exception(f"[{city_name}] Exception during weather fetch")
         return f"{city_name.ljust(9)} ⚠️ помилка API"
 
 def get_weather_summary():
     lines = [get_forecast_text(city) for city in CITY_COORDS]
     return "📅 *Прогноз погоди на сьогодні:*\n\n" + "\n".join(lines)
 
-# === Гороскопи і поради ===
+# === Гороскоп і поради ===
+ZODIACS = {
+    'Риби': 'pisces',
+    'Стрілець': 'sagittarius'
+}
+
 def get_horoscope(sign):
     try:
         url = f"https://ohmanda.com/api/horoscope/{sign}/"
@@ -117,28 +124,35 @@ def get_ba_tip():
     except:
         return "Сьогодні важливо залишатися сфокусованим 😉"
 
-# === Скріншот курсу валют з інформера ===
-async def generate_currency_screenshot():
-    url = 'https://minfin.com.ua/ua/currency/informers/'
-    browser = await launch(headless=True, args=['--no-sandbox'])
-    page = await browser.newPage()
-    await page.setViewport({'width': 400, 'height': 300})
-    await page.goto(url)
-    await page.waitForSelector('.currency-informer')
-    element = await page.querySelector('.currency-informer')
-    await element.screenshot({'path': 'exchange_today.png'})
-    await browser.close()
+# === Скріншот інформера ===
+def generate_currency_screenshot():
+    options = Options()
+    options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--window-size=1200x800")
+    driver = webdriver.Chrome(options=options)
+    try:
+        url = "https://minfin.com.ua/ua/currency/"
+        driver.get(url)
+        time.sleep(5)
+        widget = driver.find_element(By.CLASS_NAME, "sc-13dsdq3-2")
+        widget.screenshot("exchange_today.png")
+    finally:
+        driver.quit()
 
-# === Відправка у Telegram ===
-def send_digest_with_photo(message_text, photo_path, chat_id, token):
-    bot = Bot(token=token)
-    bot.send_message(chat_id=chat_id, text=message_text, parse_mode='Markdown')
-    with open(photo_path, 'rb') as photo_file:
-        bot.send_photo(chat_id=chat_id, photo=photo_file)
+# === Надсилання дайджесту з фото ===
+def send_digest_with_photo(message, image_path, chat_id, token):
+    try:
+        bot = Bot(token=token)
+        with open(image_path, 'rb') as photo:
+            bot.send_photo(chat_id=chat_id, photo=photo, caption=message, parse_mode=ParseMode.MARKDOWN)
+    except Exception as e:
+        logger.error(f"Помилка надсилання повідомлення: {e}")
 
-# === Повна генерація дайджесту ===
+# === Запуск ===
 async def send_digest():
-    await generate_currency_screenshot()
+    generate_currency_screenshot()
 
     today = datetime.now().strftime("%d.%m.%Y")
     message = f"""📅 *Доброго ранку, команда!*
@@ -157,6 +171,8 @@ async def send_digest():
 
     send_digest_with_photo(message, "exchange_today.png", CHAT_ID, TELEGRAM_TOKEN)
 
-# === Запуск ===
+    print("=== Готовий дайджест ===")
+    print(message)
+
 if __name__ == "__main__":
     asyncio.run(send_digest())
