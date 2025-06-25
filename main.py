@@ -1,15 +1,13 @@
-import logging
-import requests
 import asyncio
-from datetime import datetime
 import random
-import pytz
+import requests
+from datetime import datetime
 from bs4 import BeautifulSoup
+from telegram import Bot
+from pyppeteer import launch
+import pytz
 
 # === Налаштування ===
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 TELEGRAM_TOKEN = '7913456658:AAHS0nOMwlW89gMMGyvNEvHWZm7m9HQS2hs'
 WEATHER_API_KEY = '28239cd5e279eb988fc138c29ade9c93'
 CHAT_ID = -4830493043
@@ -24,6 +22,11 @@ CITY_TZ = {
     'Київ': 'Europe/Kyiv',
     'Варшава': 'Europe/Warsaw',
     'Аланія': 'Europe/Istanbul'
+}
+
+ZODIACS = {
+    'Риби': 'pisces',
+    'Стрілець': 'sagittarius'
 }
 
 # === Прогноз погоди ===
@@ -91,54 +94,13 @@ def get_forecast_text(city_name):
         return f"{city_name.ljust(9)} {format_period(morning)}   {format_period(afternoon)}   {format_period(evening)}"
 
     except Exception as e:
-        logger.exception(f"[{city_name}] Exception during weather fetch")
         return f"{city_name.ljust(9)} ⚠️ помилка API"
 
 def get_weather_summary():
     lines = [get_forecast_text(city) for city in CITY_COORDS]
     return "📅 *Прогноз погоди на сьогодні:*\n\n" + "\n".join(lines)
 
-# === Валюта з Minfin ===
-def get_currency_table(url):
-    try:
-        r = requests.get(url)
-        soup = BeautifulSoup(r.text, 'html.parser')
-        rows = soup.select('table tbody tr')
-        logger.debug(f"[DEBUG] {url} - знайдено {len(rows)} рядків у таблиці")
-
-        data = []
-        for row in rows[:3]:
-            cols = row.find_all('td')
-            if len(cols) >= 3:
-                date = cols[0].text.strip()
-                sell = cols[1].text.strip()
-                buy = cols[2].text.strip()
-                data.append((date, buy, sell))
-        return data
-    except Exception as e:
-        logger.error(f"Помилка при парсингу {url}: {e}")
-        return []
-
-def get_currency_summary():
-    usd = get_currency_table("https://minfin.com.ua/ua/currency/auction/archive/usd/all/")
-    eur = get_currency_table("https://minfin.com.ua/ua/currency/auction/archive/eur/all/")
-    lines = ["💱 *Курс валют (гривня до USD та EUR):*",
-             "Дата       | USD куп. / прод. | EUR куп. / прод.",
-             "-----------|------------------|------------------"]
-
-    for i in range(min(len(usd), len(eur))):
-        date = usd[i][0]
-        usd_line = f"{usd[i][1]} / {usd[i][2]}"
-        eur_line = f"{eur[i][1]} / {eur[i][2]}"
-        lines.append(f"{date:<10} | {usd_line:<16} | {eur_line:<16}")
-    return "\n".join(lines)
-
-# === Інші блоки ===
-ZODIACS = {
-    'Риби': 'pisces',
-    'Стрілець': 'sagittarius'
-}
-
+# === Гороскопи і поради ===
 def get_horoscope(sign):
     try:
         url = f"https://ohmanda.com/api/horoscope/{sign}/"
@@ -155,14 +117,36 @@ def get_ba_tip():
     except:
         return "Сьогодні важливо залишатися сфокусованим 😉"
 
-# === Тестовий запуск ===
+# === Скріншот курсу валют з інформера ===
+async def generate_currency_screenshot():
+    url = 'https://minfin.com.ua/ua/currency/informers/'
+    browser = await launch(headless=True, args=['--no-sandbox'])
+    page = await browser.newPage()
+    await page.setViewport({'width': 400, 'height': 300})
+    await page.goto(url)
+    await page.waitForSelector('.currency-informer')
+    element = await page.querySelector('.currency-informer')
+    await element.screenshot({'path': 'exchange_today.png'})
+    await browser.close()
+
+# === Відправка у Telegram ===
+def send_digest_with_photo(message_text, photo_path, chat_id, token):
+    bot = Bot(token=token)
+    bot.send_message(chat_id=chat_id, text=message_text, parse_mode='Markdown')
+    with open(photo_path, 'rb') as photo_file:
+        bot.send_photo(chat_id=chat_id, photo=photo_file)
+
+# === Повна генерація дайджесту ===
 async def send_digest():
+    await generate_currency_screenshot()
+
+    today = datetime.now().strftime("%d.%m.%Y")
     message = f"""📅 *Доброго ранку, команда!*
-Ось ваш ранковий дайджест на сьогодні:
+Ось ваш ранковий дайджест на *{today}*:
 
 {get_weather_summary()}
 
-{get_currency_summary()}
+💱 *Курс валют (за інформером Мінфіну)* — дивіться нижче 👇
 
 ♓ *Гороскоп для Риб:* {get_horoscope(ZODIACS['Риби'])}
 
@@ -171,8 +155,8 @@ async def send_digest():
 📊 *Порада для бізнес-аналітика:*
 {get_ba_tip()}"""
 
-    print("=== Готовий дайджест ===")
-    print(message)
+    send_digest_with_photo(message, "exchange_today.png", CHAT_ID, TELEGRAM_TOKEN)
 
+# === Запуск ===
 if __name__ == "__main__":
     asyncio.run(send_digest())
