@@ -27,7 +27,6 @@ CITY_TZ = {
     'Аланія': 'Europe/Istanbul'
 }
 
-# === Погода ===
 def get_closest_forecast(forecast_list, tz_str, target_hour):
     now = datetime.now(pytz.timezone(tz_str))
     closest_entry = None
@@ -92,7 +91,6 @@ def get_weather_summary():
     lines = [get_forecast_text(city) for city in CITY_COORDS]
     return "📅 *Прогноз погоди на сьогодні:*\n\n" + "\n".join(lines)
 
-# === Гороскопи та поради ===
 ZODIACS = {
     'Риби': 'pisces',
     'Стрілець': 'sagittarius'
@@ -114,9 +112,16 @@ def get_ba_tip():
     except:
         return "Сьогодні важливо залишатися сфокусованим 😉"
 
-# === Інформер курсу валют ===
 async def generate_currency_screenshot():
-    browser = await launch(headless=True, args=['--no-sandbox'])
+    browser = await launch(
+        headless=True,
+        args=[
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu'
+        ]
+    )
     page = await browser.newPage()
     await page.setViewport({'width': 700, 'height': 300})
     await page.goto("https://minfin.com.ua/ua/currency/")
@@ -125,7 +130,6 @@ async def generate_currency_screenshot():
     await informer.screenshot({'path': 'currency.png'})
     await browser.close()
 
-# === Основний дайджест ===
 async def send_digest():
     bot = Bot(token=TELEGRAM_TOKEN)
 
