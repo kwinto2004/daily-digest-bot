@@ -8,6 +8,17 @@ from telegram import Bot
 from telegram.constants import ParseMode
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+
+options = Options()
+options.add_argument('--headless')
+options.add_argument('--no-sandbox')
+options.add_argument('--disable-dev-shm-usage')
+options.add_argument('--disable-gpu')  # іноді допомагає
+options.add_argument('--disable-software-rasterizer')
+options.add_argument('--remote-debugging-port=9222')
+# НЕ додавати options.add_argument('--user-data-dir=...')
+
+driver = webdriver.Chrome(options=options)
 from selenium.webdriver.common.by import By
 import time
 
