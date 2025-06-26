@@ -5,7 +5,7 @@ from datetime import datetime
 import random
 import pytz
 from telegram import Bot
-from pyppeteer import launch
+from bs4 import BeautifulSoup
 
 # === Налаштування ===
 logging.basicConfig(level=logging.INFO)
@@ -114,19 +114,32 @@ def get_ba_tip():
     except:
         return "Сьогодні важливо залишатися сфокусованим 😉"
 
-# === Інформер курсу валют ===
-async def generate_currency_screenshot():
-    browser = await launch(
-        headless=True,
-        args=['--no-sandbox', '--disable-setuid-sandbox']
-    )
-    page = await browser.newPage()
-    await page.setViewport({'width': 700, 'height': 300})
-    await page.goto("https://minfin.com.ua/ua/currency/")
-    await page.waitForSelector('.sc-1x32wa2-9')
-    informer = await page.querySelector('.sc-1x32wa2-9')
-    await informer.screenshot({'path': 'currency.png'})
-    await browser.close()
+# === Курс валют із Мінфін ===
+def get_black_market_rates_text():
+    try:
+        url = "https://minfin.com.ua/ua/currency/"
+        headers = {"User-Agent": "Mozilla/5.0"}
+        res = requests.get(url, headers=headers, timeout=10)
+        soup = BeautifulSoup(res.text, "html.parser")
+
+        block = soup.find("div", class_="sc-1x32wa2-9")
+        if not block:
+            return "❌ Курси валют недоступні."
+
+        items = block.find_all("div", recursive=False)
+        text = "💱 *Чорний ринок валют (Мінфін):*\n"
+        for item in items:
+            rows = item.find_all("div")
+            if len(rows) >= 3:
+                currency = rows[0].get_text(strip=True)
+                buy = rows[1].get_text(strip=True)
+                sell = rows[2].get_text(strip=True)
+                text += f"{currency}: купівля {buy}, продаж {sell}\n"
+
+        return text.strip()
+    except Exception as e:
+        logger.exception("Помилка при парсингу курсу валют")
+        return "❌ Курси валют недоступні."
 
 # === Основний дайджест ===
 async def send_digest():
@@ -136,6 +149,8 @@ async def send_digest():
 Ось ваш ранковий дайджест на сьогодні:
 
 {get_weather_summary()}
+
+{get_black_market_rates_text()}
 
 ♓ *Гороскоп для Риб:* {get_horoscope(ZODIACS['Риби'])}
 
@@ -148,10 +163,6 @@ async def send_digest():
     print(message)
 
     await bot.send_message(chat_id=CHAT_ID, text=message, parse_mode="Markdown")
-
-    await generate_currency_screenshot()
-    with open("currency.png", "rb") as photo:
-        await bot.send_photo(chat_id=CHAT_ID, photo=photo, caption="💱 Актуальний курс валют")
 
 if __name__ == "__main__":
     asyncio.run(send_digest())
